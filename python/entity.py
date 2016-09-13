@@ -28,6 +28,8 @@ class Entity(object):
     __parent_query    = 'SELECT * FROM "{table}" WHERE {parent}_id=%s'
     __sibling_query   = 'SELECT * FROM "{sibling}" NATURAL JOIN "{join_table}" WHERE {table}_id=%s'
     __update_children = 'UPDATE "{table}" SET {parent}_id=%s WHERE {table}_id IN ({children})'
+    __created         = '{}_created'
+    __updated         = '{}_updated'
 
     def __init__(self, id=None):
         if self.__class__.db is None:
@@ -49,22 +51,22 @@ class Entity(object):
         #    columns, parents, children or siblings and call corresponding
         #    getter with name as an argument
         # throw an exception, if attribute is unrecognized
-        if self.__modified:
-            self.__load()
-
-            if name in self._columns:
-                return self._get_column(name)
-            if name in self._parents:
-                return self._get_parent(name)
-            if name in self._children.keys():
-                return self._get_children(name)
-            if name in self._siblings.keys():
-                return self._get_siblings(name)
-
-            else:
-                raise AttributeError
-        else:
+        if not self.__modified:
             raise ModifiedError
+
+        self.__load()
+
+        if name in self._columns:
+            return self._get_column(name)
+        if name in self._parents:
+            return self._get_parent(name)
+        if name in self._children.keys():
+            return self._get_children(name)
+        if name in self._siblings.keys():
+            return self._get_siblings(name)
+        else:
+            raise AttributeError
+
 
     def __setattr__(self, name, value):
         # check, if requested property name is in current class
@@ -82,12 +84,7 @@ class Entity(object):
     def __execute_query(self, query, args):
         # execute an sql statement and handle exceptions together with transactions
         try:
-            cur = self.db.cursor()
-            cur.execute(query, args)
-
-            request = query.split(' ')
-            if request[0] == 'INSERT':
-                self.__id = cur.fetchone()[0]
+            self.__cursor.execute(query, args)
 
             self.db.commit()
 
@@ -114,17 +111,7 @@ class Entity(object):
                                            columns=columns_in_insert,
                                            placeholders=values)
         self.__execute_query(query, data_for_query)
-
-    def execute_query_and_fetchall(self, query, args=None):
-        try:
-            self.__cursor.execute(query, args)
-
-        except psycopg2.DatabaseError, e:
-            print 'Error %s' % e
-            raise e
-
-        else:
-            return self.__cursor.fetchall()
+        self.__id = self.__cursor.fetchone()[0]
 
     def __load(self):
         # if current instance is not loaded yet - execute select statement and
@@ -134,7 +121,8 @@ class Entity(object):
             return
 
         query = self.__select_query.format(table=self.__table)
-        rows = self.execute_query_and_fetchall(query, [self.__id])
+        self.__execute_query(query, [self.__id])
+        rows = self.__cursor.fetchall()
 
         for row in rows:
             self.__fields = dict(row)
@@ -169,7 +157,8 @@ class Entity(object):
 
         query = child.__parent_query.format(table=child.__table,
                                             parent=self.__table)
-        rows = child.execute_query_and_fetchall(query, (self.__id,))
+        child.__execute_query(query, (self.__id,))
+        rows = child.__cursor.fetchall()
 
         for row in rows:
             inst_id = '{}_id'.format(child.__table)
@@ -216,7 +205,8 @@ class Entity(object):
         query = sibling.__sibling_query.format(sibling=sibling.__table,
                                                join_table=connecting_table,
                                                table=self.__table)
-        rows = sibling.execute_query_and_fetchall(query, (self.__id,))
+        sibling.__execute_query(query, (self.__id,))
+        rows = sibling.__cursor.fetchall()
 
         for row in rows:
             inst_id = '{}_id'.format(sibling.__table)
@@ -254,7 +244,8 @@ class Entity(object):
         instance = cls()
 
         query = cls.__list_query.format(table=instance.__table)
-        rows = instance.execute_query_and_fetchall(query)
+        instance.__execute_query(query, None)
+        rows = instance.__cursor.fetchall()
 
         for row in rows:
             inst_id = '{}_id'.format(instance.__table)
@@ -278,14 +269,14 @@ class Entity(object):
     @property
     def created(self):
         # try to guess yourself
-        column_name = '{}_created'.format(self.__table)
+        column_name = self.__created.format(self.__table)
         self.__load()
         return self.__fields[column_name]
 
     @property
     def updated(self):
         # try to guess yourself
-        column_name = '{}_updated'.format(self.__table)
+        column_name = self.__updated.format(self.__table)
         self.__load()
         return self.__fields[column_name]
 

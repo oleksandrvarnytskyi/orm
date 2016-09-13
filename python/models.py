@@ -61,12 +61,10 @@ if __name__ == "__main__":
         # section2 = Section(3)
         # section2.title = "zupa"
 
-        # category = Category(2)
-        # category.title = 'Another title'
-        # print(category.title)  # select from category where category_id=?
-        # category.section = section2
-        # print (category.section.id)# select from section where section_id=?
-        # print(category)  # select from section where section_id=?
+        category = Category(2)
+        category.title = 'Another title'
+        print(category.title)  # select from category where category_id=?
+        print (category.section.title)# select from section where section_id=?
 
         # article = Article()
         # article.title = 'New title'
@@ -91,22 +89,22 @@ if __name__ == "__main__":
         # article.text = 'Bugs are wonderful'
         # article.save()
 
-        # article = Article(58)
+        # article = Article(80)
         # article.delete()
         #
-        for section in Section.all():
-            print section.id, section.title
+        # for section in Section.all():
+        #     print section.id, section.title
         #
-        # section = Section(2)
-        # section.title = "zupa"
-        # for category in section.categories:  # select * from category where section_id=?
-        #     print(category.title)
+        section = Section(2)
+        section.title = "zupa"
+        for category in section.categories:  # select * from category where section_id=?
+            print(category.title)
         #
-        # post = Post(3)
-        # post.content = "blow"
-        # post.title = "wind"
-        # for tag in post.tags:  # select * from tag natural join post_tag where post_id=?
-        #     print tag.name
+        post = Post(3)
+        post.content = "blow"
+        post.title = "wind"
+        for tag in post.tags:  # select * from tag natural join post_tag where post_id=?
+            print tag.name
 
     finally:
         if Entity.db:
